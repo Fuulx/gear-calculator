@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>齿轮传动计算器</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 620px;
+      margin: 50px auto;
+      padding: 24px;
+      background: #f3f6fa;
+      color: #1f2937;
+    }
+    .card {
+      background: white;
+      padding: 28px;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px #0000000d;
+    }
+    h1 { margin-top: 0; }
+    label { display: block; margin-top: 18px; }
+    input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      margin-top: 24px;
+      padding: 13px;
+      border: 0;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #result {
+      margin-top: 24px;
+      padding: 16px;
+      background: #eff6ff;
+      border-radius: 10px;
+      line-height: 1.9;
+    }
+    .note { color: #64748b; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>⚙️ 齿轮传动计算器</h1>
+    <p class="note">适用于一对外啮合齿轮的理想计算</p>
+
+    <label for="z1">主动轮齿数</label>
+    <input id="z1" type="number" min="1" step="1" value="20">
+
+    <label for="z2">从动轮齿数</label>
+    <input id="z2" type="number" min="1" step="1" value="40">
+
+    <label for="rpm">主动轮转速（rpm）</label>
+    <input id="rpm" type="number" min="0" step="any" value="1000">
+
+    <button id="calculate">计算传动参数</button>
+    <div id="result" aria-live="polite">点击按钮开始计算。</div>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    $("calculate").addEventListener("click", () => {
+      const z1 = Number($("z1").value);
+      const z2 = Number($("z2").value);
+      const rpm = Number($("rpm").value);
+
+      if (!Number.isInteger(z1) || !Number.isInteger(z2) ||
+          z1 <= 0 || z2 <= 0 || !Number.isFinite(rpm) || rpm < 0) {
+        $("result").textContent =
+          "请输入大于 0 的整数齿数，以及不小于 0 的有效转速。";
+        return;
+      }
+
+      const ratio = z2 / z1;
+      const outputRpm = rpm / ratio;
+
+      $("result").innerHTML = `
+        <strong>计算结果</strong><br>
+        传动比：${ratio.toFixed(3)}<br>
+        从动轮转速：${outputRpm.toFixed(2)} rpm<br>
+        旋转方向：与主动轮相反
+      `;
+    });
+  </script>
+</body>
+</html>

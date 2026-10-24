@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>齿轮传动计算器 V3</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 28px 16px;
+  background: #f1f5f9; color: #1e293b;
+  font-family: system-ui, sans-serif;
+}
+main { max-width: 760px; margin: auto; }
+.card {
+  background: white; padding: 24px; margin-bottom: 18px;
+  border-radius: 16px; box-shadow: 0 8px 28px #0f172a0c;
+}
+h1 { margin-top: 0; }
+.muted { color: #64748b; font-size: 14px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+label { display: block; margin-top: 16px; font-size: 14px; }
+input {
+  width: 100%; padding: 11px; margin-top: 7px;
+  border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px;
+}
+button {
+  width: 100%; padding: 13px; margin-top: 22px;
+  border: 0; border-radius: 8px; background: #2563eb;
+  color: white; font-size: 16px; cursor: pointer;
+}
+#result {
+  margin-top: 20px; padding: 16px; border-radius: 10px;
+  background: #eff6ff; line-height: 2; overflow-wrap: anywhere;
+}
+.formula {
+  margin-top: 18px; padding: 14px; border-radius: 10px;
+  background: #f8fafc; line-height: 1.9; font-size: 14px;
+}
+.diagram-wrap { width: 100%; overflow: hidden; }
+svg { display: block; width: 100%; height: auto; }
+.gear { stroke-width: 2; }
+@media (max-width: 480px) {
+  .grid { grid-template-columns: 1fr; gap: 0; }
+  .card { padding: 18px; }
+}
+</style>
+</head>
+<body>
+<main>
+<section class="card">
+  <h1>⚙️ 齿轮传动计算器</h1>
+  <p class="muted">V3 · 参数计算与啮合示意图</p>
+
+  <div class="grid">
+    <div>
+      <label for="z1">主动轮齿数 z₁</label>
+      <input id="z1" type="number" min="1" step="1" value="20">
+    </div>
+    <div>
+      <label for="z2">从动轮齿数 z₂</label>
+      <input id="z2" type="number" min="1" step="1" value="40">
+    </div>
+  </div>
+  <div class="grid">
+    <div>
+      <label for="module">模数 m（mm）</label>
+      <input id="module" type="number" min="0.01" step="any" value="2">
+    </div>
+    <div>
+      <label for="rpm">主动轮转速（rpm）</label>
+      <input id="rpm" type="number" min="0" step="any" value="1000">
+    </div>
+  </div>
+
+  <button id="calculate">计算传动参数</button>
+  <div id="result" aria-live="polite">正在计算……</div>
+
+  <div class="formula">
+    <strong>计算公式</strong><br>
+    传动比：i = z₂ / z₁<br>
+    从动轮转速：n₂ = n₁ / i<br>
+    分度圆直径：d = mz<br>
+    标准中心距：a = m(z₁ + z₂) / 2
+  </div>
+</section>
+
+<section class="card">
+  <h2>齿轮啮合示意图</h2>
+  <p class="muted">圆形表示齿轮外形的简化示意，虚线圆表示分度圆；箭头表示旋转方向。</p>
+  <div class="diagram-wrap">
+    <svg id="gearDiagram" viewBox="0 0 600 310" role="img"
+         aria-label="主动轮与从动轮啮合示意图">
+      <text x="300" y="150" text-anchor="middle" fill="#64748b">
+        输入参数后显示示意图
+      </text>
+    </svg>
+  </div>
+  <p id="diagramInfo" class="muted"></p>
+</section>
+
+<p class="muted">注意：该图为原理示意，不是可直接用于加工的齿形图。实际设计还需校核齿形、强度、材料、精度及安装条件。</p>
+</main>
+
+<script>
+const get = id => document.getElementById(id);
+
+function validInputs() {
+  const z1 = Number(get("z1").value);
+  const z2 = Number(get("z2").value);
+  const m = Number(get("module").value);
+  const rpm = Number(get("rpm").value);
+  const blank = ["z1", "z2", "module", "rpm"]
+    .some(id => get(id).value.trim() === "");
+
+  if (blank || !Number.isInteger(z1) || z1 <= 0 ||
+      !Number.isInteger(z2) || z2 <= 0 ||
+      !Number.isFinite(m) || m <= 0 ||
+      !Number.isFinite(rpm) || rpm < 0) {
+    get("result").textContent =
+      "输入无效：齿数须为正整数，模数须大于 0，转速须大于或等于 0。";
+    return null;
+  }
+  return { z1, z2, m, rpm };
+}
+
+function drawDiagram(z1, z2) {
+  const svg = get("gearDiagram");
+  const cx1 = 175, cx2 = 425, cy = 145;
+  const maxRadius = 92;
+  const scale = maxRadius / Math.max(z1, z2);
+  const r1 = z1 * scale, r2 = z2 * scale;
+  const pitch1 = r1 * 0.88, pitch2 = r2 * 0.88;
+
+  function gearTeeth(cx, radius, teeth, fill, stroke) {
+    const points = [];
+    const steps = teeth * 4;
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      const phase = i % 4;
+      const r = radius * (phase === 1 || phase === 2 ? 1 : 0.88);
+      points.push(
+        (cx + Math.cos(angle) * r).toFixed(2) + "," +
+        (cy + Math.sin(angle) * r).toFixed(2)
+      );
+    }
+    return `<polygon class="gear" points="${points.join(" ")}"
+      fill="${fill}" stroke="${stroke}"/>`;
+  }
+
+  // 以固定视图宽度展示两轮；半径按齿数比例绘制。
+  const centerGap = r1 + r2;
+  const actualCx1 = 300 - centerGap / 2;
+  const actualCx2 = 300 + centerGap / 2;
+
+  // 若尺寸极端，限制显示位置，避免图形超出画布。
+  const left = Math.min(actualCx1 - r1, actualCx2 - r2);
+  const right = Math.max(actualCx1 + r1, actualCx2 + r2);
+  const fit = Math.min(1, 520 / Math.max(1, right - left));
+  const finalR1 = r1 * fit, finalR2 = r2 * fit;
+  const finalCx1 = 300 - (finalR1 + finalR2) / 2;
+  const finalCx2 = 300 + (finalR1 + finalR2) / 2;
+
+  function polygon(cx, radius, teeth, fill, stroke) {
+    const pts = [];
+    const steps = Math.max(48, teeth * 4);
+    for (let i = 0; i < steps; i++) {
+      const a = i / steps * Math.PI * 2;
+      const toothPhase = i % 4;
+      const r = radius * ((toothPhase === 1 || toothPhase === 2) ? 1 : 0.88);
+      pts.push(`${cx + Math.cos(a) * r},${cy + Math.sin(a) * r}`);
+    }
+    return `<polygon points="${pts.join(" ")}" fill="${fill}"
+      stroke="${stroke}" stroke-width="1.8"/>`;
+  }
+
+  svg.innerHTML = `
+    <defs>
+      <marker id="arrowBlue" markerWidth="8" markerHeight="8"
+        refX="4" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#2563eb"/>
+      </marker>
+      <marker id="arrowOrange" markerWidth="8" markerHeight="8"
+        refX="4" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="#ea580c"/>
+      </marker>
+    </defs>
+    ${polygon(finalCx1, finalR1, z1, "#bfdbfe", "#2563eb")}
+    ${polygon(finalCx2, finalR2, z2, "#fed7aa", "#ea580c")}
+    <circle cx="${finalCx1}" cy="${cy}" r="${finalR1 * 0.88}"
+      fill="none" stroke="#2563eb" stroke-dasharray="5 4" stroke-width="1.5"/>
+    <circle cx="${finalCx2}" cy="${cy}" r="${finalR2 * 0.88}"
+      fill="none" stroke="#ea580c" stroke-dasharray="5 4" stroke-width="1.5"/>
+    <circle cx="${finalCx1}" cy="${cy}" r="4" fill="#1e40af"/>
+    <circle cx="${finalCx2}" cy="${cy}" r="4" fill="#9a3412"/>
+    <path d="M ${finalCx1-22} ${cy-finalR1-8}
+      A ${Math.max(15, finalR1*0.55)} ${Math.max(15, finalR1*0.55)}
+      0 1 1 ${finalCx1+22} ${cy-finalR1-8}"
+      fill="none" stroke="#2563eb" stroke-width="3"
+      marker-end="url(#arrowBlue)"/>
+    <path d="M ${finalCx2-22} ${cy-finalR2-8}
+      A ${Math.max(15, finalR2*0.55)} ${Math.max(15, finalR2*0.55)}
+      0 1 0 ${finalCx2+22} ${cy-finalR2-8}"
+      fill="none" stroke="#ea580c" stroke-width="3"
+      marker-end="url(#arrowOrange)"/>
+    <text x="${finalCx1}" y="${Math.min(275, cy+finalR1+25)}"
+      text-anchor="middle" font-size="14" fill="#1e40af">主动轮 z₁=${z1}</text>
+    <text x="${finalCx2}" y="${Math.min(295, cy+finalR2+25)}"
+      text-anchor="middle" font-size="14" fill="#9a3412">从动轮 z₂=${z2}</text>
+    <text x="300" y="18" text-anchor="middle" font-size="13" fill="#64748b">
+      外啮合：两轮转向相反
+    </text>
+  `;
+  get("diagramInfo").textContent =
+    `齿数比 ${z1}:${z2}；示意图尺寸按齿数比例缩放。`;
+}
+
+get("calculate").addEventListener("click", () => {
+  const data = validInputs();
+  if (!data) {
+    get("diagramInfo").textContent = "请修正输入后重新计算。";
+    return;
+  }
+
+  const { z1, z2, m, rpm } = data;
+  const ratio = z2 / z1;
+  const outputRpm = rpm / ratio;
+  const d1 = m * z1;
+  const d2 = m * z2;
+  const centerDistance = (d1 + d2) / 2;
+
+  get("result").innerHTML = `
+    <strong>计算结果</strong><br>
+    传动比：${ratio.toFixed(3)}<br>
+    从动轮转速：${outputRpm.toFixed(2)} rpm<br>
+    主动轮分度圆直径：${d1.toFixed(2)} mm<br>
+    从动轮分度圆直径：${d2.toFixed(2)} mm<br>
+    标准中心距：${centerDistance.toFixed(2)} mm<br>
+    旋转方向：与主动轮相反
+  `;
+  drawDiagram(z1, z2);
+});
+
+get("calculate").click();
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>齿轮传动计算器 V2</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 32px 16px;
+      background: #f1f5f9;
+      color: #1e293b;
+      font-family: system-ui, sans-serif;
+    }
+
+    main {
+      max-width: 680px;
+      margin: auto;
+    }
+
+    .card {
+      background: white;
+      padding: 26px;
+      border-radius: 16px;
+      box-shadow: 0 8px 28px #0f172a0c;
+    }
+
+    h1 { margin-top: 0; }
+    .muted { color: #64748b; font-size: 14px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    label {
+      display: block;
+      margin-top: 18px;
+      font-size: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 7px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 24px;
+      border: 0;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    #result {
+      margin-top: 22px;
+      padding: 18px;
+      border-radius: 10px;
+      background: #eff6ff;
+      line-height: 2;
+      overflow-wrap: anywhere;
+    }
+
+    .formula {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f8fafc;
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; gap: 0; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <h1>⚙️ 齿轮传动计算器</h1>
+    <p class="muted">V2 · 标准外啮合直齿圆柱齿轮的理想计算</p>
+
+    <div class="grid">
+      <div>
+        <label for="z1">主动轮齿数 z₁</label>
+        <input id="z1" type="number" min="1" step="1" value="20">
+      </div>
+      <div>
+        <label for="z2">从动轮齿数 z₂</label>
+        <input id="z2" type="number" min="1" step="1" value="40">
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <label for="module">齿轮模数 m（mm）</label>
+        <input id="module" type="number" min="0.01" step="any" value="2">
+      </div>
+      <div>
+        <label for="rpm">主动轮转速（rpm）</label>
+        <input id="rpm" type="number" min="0" step="any" value="1000">
+      </div>
+    </div>
+
+    <button id="calculate">计算传动参数</button>
+
+    <div id="result" aria-live="polite">
+      修改参数后，点击按钮查看计算结果。
+    </div>
+
+    <div class="formula">
+      <strong>计算公式</strong><br>
+      传动比：i = z₂ / z₁<br>
+      从动轮转速：n₂ = n₁ / i<br>
+      分度圆直径：d = mz<br>
+      标准中心距：a = m(z₁ + z₂) / 2
+    </div>
+  </section>
+  <p class="muted">注意：实际设计还需校核齿形、强度、材料、精度及安装条件。</p>
+</main>
+
+<script>
+  const get = id => document.getElementById(id);
+
+  get("calculate").addEventListener("click", () => {
+    const z1 = Number(get("z1").value);
+    const z2 = Number(get("z2").value);
+    const m = Number(get("module").value);
+    const rpm = Number(get("rpm").value);
+
+    if (
+      !Number.isInteger(z1) || z1 <= 0 ||
+      !Number.isInteger(z2) || z2 <= 0 ||
+      !Number.isFinite(m) || m <= 0 ||
+      !Number.isFinite(rpm) || rpm < 0 ||
+      get("z1").value.trim() === "" ||
+      get("z2").value.trim() === "" ||
+      get("module").value.trim() === "" ||
+      get("rpm").value.trim() === ""
+    ) {
+      get("result").textContent =
+        "输入无效：齿数须为正整数，模数须大于 0，转速须大于或等于 0。";
+      return;
+    }
+
+    const ratio = z2 / z1;
+    const outputRpm = rpm / ratio;
+    const d1 = m * z1;
+    const d2 = m * z2;
+    const centerDistance = (d1 + d2) / 2;
+
+    get("result").innerHTML = `
+      <strong>计算结果</strong><br>
+      传动比：${ratio.toFixed(3)}<br>
+      从动轮转速：${outputRpm.toFixed(2)} rpm<br>
+      主动轮分度圆直径：${d1.toFixed(2)} mm<br>
+      从动轮分度圆直径：${d2.toFixed(2)} mm<br>
+      标准中心距：${centerDistance.toFixed(2)} mm<br>
+      旋转方向：与主动轮相反
+    `;
+  });
+
+  get("calculate").click();
+</script>
+</body>
+</html>
